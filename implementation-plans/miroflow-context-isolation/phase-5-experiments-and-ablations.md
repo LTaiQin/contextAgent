@@ -198,12 +198,13 @@
 - 旧 `lexical` 前 5 条 session hit 为 4/5，真实 QA 3 条为 1/3。
 - 新 `lexical_turn + weighted` 前 20 条 session hit 为 20/20，前 100 条为 94/100。
 - 固定把 LongMemEval `max_sessions` 从 3 提高到 8 后，前 100 条 session hit 提升到 97/100，但 token 从 0.4477M 增加到 1.0883M，不适合作为默认主策略。
+- 新 `lexical_adaptive + weighted` 前 100 条 session hit 为 97/100，token 为 0.9620M；方向有效，但当前阈值偏宽。
 - 新 `lexical_turn + weighted + answer-type prompt` 真实 QA 3 条为 3/3，输入 token 约为 full session 的 2.62%。
 
 下一步:
 
 - 分析 LongMemEval 100 条 dry-run 的 6 个 miss，重点看抽象改写和 multi-session。
-- 实现 adaptive session budget: 默认取 3 个 session，multi-session/聚合/低置信时扩到 6 或 8。
+- 收紧 adaptive session budget: single-session 默认保持 3 个 session，只对真正低置信/抽象改写样本扩展。
 - LongMemEval 真实模型先跑 10 条，确认新策略是否稳定。
 - 实现 benchmark mixer，把 AgentIF、MATH、LongMemEval QA task 以 task 为单位混入同一 session，并支持可控冲突规则。
 

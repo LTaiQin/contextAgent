@@ -56,6 +56,7 @@
 | `longmemeval_retrieval_lexical_turn_weighted_smoke20` | 20 | 20/20 | - | 0.0849M |
 | `longmemeval_retrieval_lexical_turn_weighted_smoke100` | 100 | 94/100 | - | 0.4477M |
 | `longmemeval_retrieval_lexical_turn_weighted_s8_smoke100` | 100 | 97/100 | - | 1.0883M |
+| `longmemeval_retrieval_lexical_adaptive_weighted_smoke100` | 100 | 97/100 | - | 0.9620M |
 | `longmemeval_qa_lexical_turn_weighted_3_cctq_gpt54` | 3 | 3/3 | 2/3 | 0.0112M |
 | `longmemeval_qa_lexical_turn_weighted_prompt_3_cctq_gpt54` | 3 | 3/3 | 3/3 | 0.0112M |
 
@@ -77,11 +78,14 @@
 
 把 `max_sessions` 从 3 提到 8 后，100 条 session hit 从 94/100 提升到 97/100，但 query input token 从 0.4477M 增加到 1.0883M。
 
+新增 `lexical_adaptive` 后，100 条 session hit 同样为 97/100，query input token 为 0.9620M，略低于固定 8，但仍明显高于固定 3。
+
 这个结果说明:
 
 1. 部分 miss 是召回预算不足导致的。
 2. 默认固定 8 个 session 成本偏高，不适合作为主策略。
 3. 更合理的方向是自适应扩大候选: 只有 multi-session、聚合问题、低置信排名或 top score 差距过小时，才从 3 扩到 6 或 8。
+4. 当前 `lexical_adaptive` 阈值偏宽，70 条 single-session-user 中有 53 条扩到了 6 或 8，后续需要收紧。
 
 ## 下一步
 

@@ -129,6 +129,8 @@ class LongMemEvalAdapter:
         if mode == "lexical_turn":
             ranked = self.rank_sessions_by_turn_evidence(sample)
             return ranked[:max_sessions]
+        if mode == "lexical_adaptive":
+            return self.select_adaptive_session_indexes(sample, base_sessions=max_sessions)
         ranked = self.rank_sessions(sample)
         return ranked[:max_sessions]
 
@@ -146,12 +148,17 @@ class LongMemEvalAdapter:
         return [index for score, index in scored if score > 0] or list(range(min(len(sessions), 1)))
 
     def rank_sessions_by_turn_evidence(self, sample: dict[str, Any]) -> list[int]:
+        return [index for score, index in self.score_sessions_by_turn_evidence(sample) if score > 0] or list(
+            range(min(len(sample.get("haystack_sessions", [])), 1))
+        )
+
+    def score_sessions_by_turn_evidence(self, sample: dict[str, Any]) -> list[tuple[float, int]]:
         sessions = sample.get("haystack_sessions", [])
         if not sessions:
             return []
         question_terms = self._query_terms(str(sample.get("question", "")))
         if not question_terms:
-            return list(range(min(len(sessions), 1)))
+            return [(1.0, index) for index in range(min(len(sessions), 1))]
         idf = self._session_idf(sessions)
         scored: list[tuple[float, int]] = []
         for session_index, session in enumerate(sessions):
@@ -169,7 +176,41 @@ class LongMemEvalAdapter:
             score = top_score + 0.35 * mean_top + 0.25 * density
             scored.append((score, session_index))
         scored.sort(key=lambda item: (-item[0], item[1]))
-        return [index for score, index in scored if score > 0] or list(range(min(len(sessions), 1)))
+        return scored
+
+    def select_adaptive_session_indexes(self, sample: dict[str, Any], base_sessions: int = 3) -> list[int]:
+        scored = self.score_sessions_by_turn_evidence(sample)
+        ranked = [index for score, index in scored if score > 0]
+        if not ranked:
+            return list(range(min(len(sample.get("haystack_sessions", [])), 1)))
+        budget = self.adaptive_session_budget(sample, scored, base_sessions=base_sessions)
+        return ranked[:budget]
+
+    def adaptive_session_budget(
+        self,
+        sample: dict[str, Any],
+        scored: list[tuple[float, int]],
+        base_sessions: int = 3,
+    ) -> int:
+        question = str(sample.get("question", "")).lower()
+        question_type = str(sample.get("question_type", ""))
+        positive_scores = [score for score, _index in scored if score > 0]
+        if not positive_scores:
+            return base_sessions
+        if question_type == "multi-session" or any(term in question for term in AGGREGATION_MARKERS):
+            return max(base_sessions, 8)
+        if len(positive_scores) <= base_sessions:
+            return len(positive_scores)
+        top_score = positive_scores[0]
+        kth_score = positive_scores[base_sessions - 1]
+        next_score = positive_scores[base_sessions]
+        if top_score <= 0:
+            return base_sessions
+        next_ratio = next_score / top_score
+        boundary_gap = (kth_score - next_score) / top_score
+        if next_ratio >= 0.72 or boundary_gap <= 0.06:
+            return max(base_sessions, 6)
+        return base_sessions
 
     def rank_turns(self, sample: dict[str, Any], session_index: int) -> list[int]:
         sessions = sample.get("haystack_sessions", [])
@@ -321,6 +362,20 @@ ANSWER_MARKERS = (
     "yesterday",
     "today",
     "ago",
+)
+
+AGGREGATION_MARKERS = (
+    "how many",
+    "how much",
+    "how long",
+    "total",
+    "different",
+    "times",
+    "days",
+    "weeks",
+    "months",
+    "past two",
+    "this year",
 )
 
 

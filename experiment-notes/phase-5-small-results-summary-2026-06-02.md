@@ -28,6 +28,7 @@
 | LongMemEval | `longmemeval_qa_lexical_3_turn20_cctq_gpt54` | `-` | `lexical` | 3 | 1/3 (33.3%) | 0.0341M | answer session hit 2/3; compression 0.0799 |
 | LongMemEval | `longmemeval_retrieval_lexical_turn_weighted_smoke20` | `-` | `lexical_turn` | 20 | - | - | answer session hit 20/20; compression 0.03 |
 | LongMemEval | `longmemeval_retrieval_lexical_turn_weighted_smoke100` | `-` | `lexical_turn` | 100 | - | - | answer session hit 94/100; compression 0.0316 |
+| LongMemEval | `longmemeval_retrieval_lexical_adaptive_weighted_smoke100` | `-` | `lexical_adaptive` | 100 | - | - | answer session hit 97/100; compression 0.0679 |
 | LongMemEval | `longmemeval_qa_lexical_turn_weighted_3_cctq_gpt54` | `-` | `lexical_turn` | 3 | 2/3 (66.7%) | 0.0112M | answer session hit 3/3; compression 0.0262 |
 | LongMemEval | `longmemeval_qa_lexical_turn_weighted_prompt_3_cctq_gpt54` | `-` | `lexical_turn` | 3 | 3/3 (100.0%) | 0.0112M | answer session hit 3/3; compression 0.0262 |
 

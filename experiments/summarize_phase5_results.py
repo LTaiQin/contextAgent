@@ -63,6 +63,7 @@ KEY_RUNS = [
     "longmemeval_qa_lexical_3_turn20_cctq_gpt54",
     "longmemeval_retrieval_lexical_turn_weighted_smoke20",
     "longmemeval_retrieval_lexical_turn_weighted_smoke100",
+    "longmemeval_retrieval_lexical_adaptive_weighted_smoke100",
     "longmemeval_qa_lexical_turn_weighted_3_cctq_gpt54",
     "longmemeval_qa_lexical_turn_weighted_prompt_3_cctq_gpt54",
 ]

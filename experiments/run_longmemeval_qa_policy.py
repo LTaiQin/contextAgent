@@ -74,7 +74,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--split", default="s_cleaned")
     parser.add_argument("--limit", type=int, default=5)
-    parser.add_argument("--mode", choices=["oracle", "lexical", "lexical_turn", "full"], default="oracle")
+    parser.add_argument(
+        "--mode",
+        choices=["oracle", "lexical", "lexical_turn", "lexical_adaptive", "full"],
+        default="oracle",
+    )
     parser.add_argument("--max-sessions", type=int, default=3)
     parser.add_argument("--max-turns-per-session", type=int, default=4)
     parser.add_argument("--turn-mode", choices=["first_n", "last_n", "ranked", "weighted", "full"], default="first_n")
