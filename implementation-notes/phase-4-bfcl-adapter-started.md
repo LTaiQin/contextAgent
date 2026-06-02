@@ -294,3 +294,62 @@ conda run --no-capture-output -n miroflow-py312 \
    - lexical retrieval
    - 后续 hybrid / embedding retrieval
 4. 这进一步支持本项目假设：长 session agent 不能每条消息无差别塞历史，也不能只靠最近 N 轮。
+
+## LongMemEval QA Runner
+
+新增：
+
+```text
+experiments/run_longmemeval_qa_policy.py
+```
+
+目标：
+
+把 LongMemEval 从纯检索 smoke 推进到真实模型 QA，小样本比较：
+
+1. `full`：完整 haystack。
+2. `oracle`：按 `answer_session_ids` 选证据。
+3. `lexical`：按问题词重叠选证据。
+
+已验证 dry-run：
+
+```bash
+conda run --no-capture-output -n miroflow-py312 \
+  python experiments/run_longmemeval_qa_policy.py \
+  --split s_cleaned \
+  --limit 3 \
+  --mode oracle \
+  --dry-run \
+  --out-dir experiments/runs/longmemeval_qa_oracle_dryrun
+
+conda run --no-capture-output -n miroflow-py312 \
+  python experiments/run_longmemeval_qa_policy.py \
+  --split s_cleaned \
+  --limit 3 \
+  --mode lexical \
+  --dry-run \
+  --out-dir experiments/runs/longmemeval_qa_lexical_dryrun
+
+conda run --no-capture-output -n miroflow-py312 \
+  python experiments/run_longmemeval_qa_policy.py \
+  --split s_cleaned \
+  --limit 1 \
+  --mode full \
+  --dry-run \
+  --out-dir experiments/runs/longmemeval_qa_full_dryrun
+```
+
+dry-run 结果：
+
+| mode | answer session hit | full input tokens est | query input tokens est | avg compression ratio |
+| --- | --- | ---: | ---: | ---: |
+| oracle | 3/3 | 426,921 | 4,579 | 0.0107 |
+| lexical | 2/3 | 426,921 | 13,359 | 0.0313 |
+| full | 1/1 | 141,052 | 141,052 | 1.0 |
+
+结论：
+
+1. 这个 runner 已经能进入真实模型阶段。
+2. oracle evidence 相比 full haystack 仍然能把输入压到约 1%。
+3. lexical retrieval 成本也很低，但命中率明显弱于 oracle。
+4. 下一步最合理的是用真实模型跑 3 到 5 条 oracle / lexical 小样本，确认实际 QA 分数和 token 成本。
