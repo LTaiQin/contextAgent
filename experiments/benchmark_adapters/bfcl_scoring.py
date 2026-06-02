@@ -6,6 +6,12 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from bfcl_eval.constants.enums import Language
+from bfcl_eval.eval_checker.ast_eval.ast_checker import ast_checker as official_ast_checker
+from bfcl_eval.eval_checker.multi_turn_eval.multi_turn_checker import (
+    multi_turn_checker as official_multi_turn_checker,
+)
+
 
 @dataclass
 class ParsedCall:
@@ -81,6 +87,38 @@ def score_bfcl(content: str, gold: Any) -> dict[str, Any]:
         "expected_calls": [{"name": call.name, "args": call.args} for call in expected],
         "predicted_calls": [{"name": call.name, "args": call.args} for call in predicted],
         "eval_details": [],
+    }
+
+
+def score_bfcl_official(sample: dict[str, Any], content: Any, model_name: str = "gpt-5.2-2025-12-11") -> dict[str, Any]:
+    test_id = str(sample.get("id", ""))
+    category = test_id.rsplit("_", 1)[0]
+    prompt = sample
+    if "multi_turn" in category:
+        decoded = content if isinstance(content, list) else []
+        result = official_multi_turn_checker(decoded, sample["ground_truth"], prompt, category, model_name)
+        return {
+            "benchmark_score": bool(result.get("valid")),
+            "benchmark_scored": True,
+            "score_type": "bfcl_official_multi_turn",
+            "official_result": result,
+        }
+
+    if not isinstance(content, list):
+        content = []
+    result = official_ast_checker(
+        sample.get("function") if isinstance(sample.get("function"), list) else [sample.get("function")],
+        content,
+        sample["ground_truth"],
+        Language.PYTHON,
+        category,
+        model_name,
+    )
+    return {
+        "benchmark_score": bool(result.get("valid")),
+        "benchmark_scored": True,
+        "score_type": "bfcl_official_ast",
+        "official_result": result,
     }
 
 

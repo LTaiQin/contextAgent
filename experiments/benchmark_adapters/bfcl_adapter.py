@@ -50,6 +50,8 @@ class BFCLAdapter:
                 "bfcl_id": sample.get("id"),
                 "turn_count": len(sample.get("question", [])),
                 "tool_count": len(tools),
+                "initial_config": sample.get("initial_config", {}),
+                "involved_classes": sample.get("involved_classes", []),
             },
         )
 

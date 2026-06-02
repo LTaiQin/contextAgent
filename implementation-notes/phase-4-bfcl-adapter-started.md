@@ -134,20 +134,13 @@ experiments/benchmark_adapters/scoring.py
 src/context_isolation/gates.py
 ```
 
-### BFCL 本地 scorer
+### BFCL 官方 scorer
 
-当前 scorer 是 `bfcl_local_ast_approx`，用于小样本 smoke 和策略压力测试，不等价于 BFCL 官方 evaluator。
+当前 BFCL scorer 已接入官方 `bfcl_eval` 包的 evaluator：
 
-它支持：
-
-1. 从 gold 中解析 `tool_name(arg=value)` 形式的 expected calls。
-2. 从模型输出中解析 JSON tool call 或 Python-like call。
-3. 统计：
-   - expected call count
-   - predicted call count
-   - matched call count
-   - wrong tool count
-   - wrong argument count
+1. `simple` 使用官方 `ast_checker`。
+2. `multi_turn_base` 使用官方 `multi_turn_checker`。
+3. 本地 `bfcl_local_ast_approx` 保留作为 fallback / 调试参考，但不再作为主结果。
 
 冒烟测试：
 
@@ -162,6 +155,12 @@ conda run --no-capture-output -n miroflow-py312 \
 simple 3/3 passed
 multi_turn_base 3/3 passed
 ```
+
+注意：
+
+1. BFCL 官方 checker 对模型名、函数名和 multi-turn 结构都比较严格。
+2. 当前 smoke 使用 `gpt-5.2-2025-12-11` 作为官方 BFCL model key 的对齐参考。
+3. multi-turn 样本需要传入 `initial_config` 和 `involved_classes`，否则官方 evaluator 无法执行。
 
 ### BFCL tool-router stress dry-run
 
