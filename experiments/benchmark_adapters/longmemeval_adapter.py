@@ -54,6 +54,7 @@ class LongMemEvalAdapter:
         mode: str = "oracle",
         max_sessions: int = 3,
         max_turns_per_session: int = 4,
+        turn_mode: str = "first_n",
     ) -> str:
         sessions = sample.get("haystack_sessions", [])
         session_ids = sample.get("haystack_session_ids", [])
@@ -62,13 +63,45 @@ class LongMemEvalAdapter:
         for index in selected_indexes:
             session_id = session_ids[index] if index < len(session_ids) else f"session_{index}"
             parts.append(f"\n[Session {index + 1}: {session_id}]")
-            for turn in sessions[index][:max_turns_per_session]:
+            turn_indexes = self.select_turn_indexes_in_session(
+                sample,
+                session_index=index,
+                max_turns=max_turns_per_session,
+                mode=turn_mode,
+            )
+            for turn_index in turn_indexes:
+                turn = sessions[index][turn_index]
                 role = turn.get("role", "user")
                 content = turn.get("content", "")
                 parts.append(f"{role}: {content}")
         parts.append("\nQuestion:")
         parts.append(str(sample.get("question", "")))
         return "\n".join(parts)
+
+    def select_turn_indexes_in_session(
+        self,
+        sample: dict[str, Any],
+        session_index: int,
+        max_turns: int = 4,
+        mode: str = "first_n",
+    ) -> list[int]:
+        sessions = sample.get("haystack_sessions", [])
+        if session_index >= len(sessions) or session_index < 0:
+            return []
+        turns = sessions[session_index]
+        if not turns:
+            return []
+        if mode == "full":
+            return list(range(len(turns)))
+        if mode == "last_n":
+            return list(range(max(0, len(turns) - max_turns), len(turns)))
+        if mode == "ranked":
+            ranked = self.rank_turns(sample, session_index)
+            if not ranked:
+                return list(range(min(len(turns), max_turns)))
+            ranked = ranked[:max_turns]
+            return sorted(ranked)
+        return list(range(min(len(turns), max_turns)))
 
     def select_session_indexes(
         self,
@@ -100,6 +133,26 @@ class LongMemEvalAdapter:
             scored.append((score, index))
         scored.sort(key=lambda item: (-item[0], item[1]))
         return [index for score, index in scored if score > 0] or list(range(min(len(sessions), 1)))
+
+    def rank_turns(self, sample: dict[str, Any], session_index: int) -> list[int]:
+        sessions = sample.get("haystack_sessions", [])
+        if session_index >= len(sessions) or session_index < 0:
+            return []
+        question_terms = self._terms(str(sample.get("question", "")))
+        turns = sessions[session_index]
+        scored: list[tuple[int, int]] = []
+        for index, turn in enumerate(turns):
+            content = str(turn.get("content", ""))
+            turn_terms = self._terms(content)
+            score = len(question_terms & turn_terms)
+            if score:
+                score += 1 if turn.get("role") == "assistant" else 0
+            scored.append((score, index))
+        scored.sort(key=lambda item: (-item[0], item[1]))
+        ranked = [index for score, index in scored if score > 0]
+        if ranked:
+            return ranked
+        return list(range(min(len(turns), 1)))
 
     def _split_path(self, split: str) -> Path:
         candidates = {

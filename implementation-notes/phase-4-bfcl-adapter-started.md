@@ -368,10 +368,12 @@ experiment-notes/longmemeval-qa-small-cctq-gpt54-2026-06-02.md
 | --- | ---: | ---: | ---: | ---: |
 | oracle | 4 | 3/3 | 1/3 | 4,579 |
 | oracle | 20 | 3/3 | 3/3 | 12,155 |
+| oracle | ranked turn mode, max turn 4 | 3/3 | 3/3 | 5,610 |
 | lexical | 20 | 2/3 | 1/3 | 34,081 |
 
 关键结论：
 
 1. 只选对 session 还不够，固定取前 4 turn 会漏掉答案证据。
 2. oracle 选中 answer session 并保留更多 turn 后，小样本 3/3 正确，token 仍远低于 full haystack。
-3. lexical retrieval 会漏检或引入干扰，后续需要 session 内 evidence ranking / validator。
+3. oracle 选中 answer session 后，再用 ranked turn mode 选局部证据，3/3 正确，且输入估算进一步下降到约 5.6K。
+4. lexical retrieval 会漏检或引入干扰，后续需要 session 内 evidence ranking / validator。

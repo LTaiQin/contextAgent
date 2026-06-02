@@ -65,6 +65,7 @@ def build_query(adapter: LongMemEvalAdapter, sample: dict[str, Any], args: argpa
         mode=args.mode,
         max_sessions=args.max_sessions,
         max_turns_per_session=args.max_turns_per_session,
+        turn_mode=args.turn_mode,
     )
     return query, selected
 
@@ -76,6 +77,7 @@ def main() -> None:
     parser.add_argument("--mode", choices=["oracle", "lexical", "full"], default="oracle")
     parser.add_argument("--max-sessions", type=int, default=3)
     parser.add_argument("--max-turns-per-session", type=int, default=4)
+    parser.add_argument("--turn-mode", choices=["first_n", "last_n", "ranked", "full"], default="first_n")
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--max-tokens", type=int, default=160)
@@ -91,7 +93,7 @@ def main() -> None:
 
     print(
         f"{CYAN}LongMemEval QA run split={args.split} mode={args.mode} limit={len(samples)} "
-        f"dry_run={args.dry_run}{RESET}",
+        f"turn_mode={args.turn_mode} dry_run={args.dry_run}{RESET}",
         flush=True,
     )
 
@@ -156,6 +158,7 @@ def main() -> None:
             "question_id": unit.metadata.get("question_id"),
             "question_type": unit.metadata.get("question_type"),
             "mode": args.mode,
+            "turn_mode": args.turn_mode,
             "selected_session_indexes": selected_indexes,
             "answer_session_hit": hit,
             "full_input_tokens_est": full_tokens,

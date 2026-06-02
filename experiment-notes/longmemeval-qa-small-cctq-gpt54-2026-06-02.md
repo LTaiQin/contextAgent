@@ -59,6 +59,7 @@ python experiments/run_longmemeval_qa_policy.py \
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | oracle | 4 | 3/3 | 1/3 | 426,921 | 4,579 | 0.0107 |
 | oracle | 20 | 3/3 | 3/3 | 426,921 | 12,155 | 0.0285 |
+| oracle | ranked turn mode, max turn 4 | 3/3 | 3/3 | 426,921 | 5,610 | 0.0132 |
 | lexical | 20 | 2/3 | 1/3 | 426,921 | 34,081 | 0.0799 |
 
 ## 观察
@@ -69,6 +70,7 @@ python experiments/run_longmemeval_qa_policy.py \
    - 第 1 条没有命中 answer session。
    - 第 3 条命中了 answer session，但仍被其他检索 session 干扰，回答成 `in my email inbox`，gold 是 `Target`。
 4. 这说明 LongMemEval 不能只靠简单词重叠检索；后续需要 evidence validator 或 hybrid retrieval。
+5. `oracle + ranked turn mode` 在 3/3 正确的前提下，把输入进一步压到约 5.6K tokens，说明 session 内 turn ranking 比固定前 N 轮更适合作为默认 evidence 裁剪策略。
 
 ## 下一步
 
@@ -79,3 +81,4 @@ python experiments/run_longmemeval_qa_policy.py \
    - oracle evidence
    - lexical retrieval
    - improved evidence retrieval
+   - oracle + ranked turn mode
