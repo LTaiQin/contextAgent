@@ -159,6 +159,12 @@
 - 只测日志输出。
 - 不比较方法效果。
 
+当前状态:
+
+- AgentIF、MATH、Mixed Session、BFCL、LongMemEval 的基础 adapter 或 runner 已跑通。
+- BFCL 已接入官方 checker 的直接调用 smoke。
+- LongMemEval 已完成 oracle、旧 lexical、新 `lexical_turn + weighted` 的 smoke 对比。
+
 ### Stage 1: P0 Smoke
 
 规模:
@@ -180,6 +186,24 @@
 
 - 判断方法是否明显减少污染或工具误选。
 - 估算每题 token 和耗时。
+
+当前新增策略:
+
+- `lexical_turn`: LongMemEval 专用非 oracle 检索策略，按 turn-level weighted evidence 给 session 排名。
+- `weighted` turn mode: 在选中 session 内按 IDF 加权问题词 overlap 选择 top-k turn。
+- LongMemEval QA prompt 增加答案类型约束，用于减少“证据来源”和“动作发生地点”混淆。
+
+当前小样本结论:
+
+- 旧 `lexical` 前 5 条 session hit 为 4/5，真实 QA 3 条为 1/3。
+- 新 `lexical_turn + weighted` 前 20 条 session hit 为 20/20，前 100 条为 94/100。
+- 新 `lexical_turn + weighted + answer-type prompt` 真实 QA 3 条为 3/3，输入 token 约为 full session 的 2.62%。
+
+下一步:
+
+- 分析 LongMemEval 100 条 dry-run 的 6 个 miss，重点看抽象改写和 multi-session。
+- LongMemEval 真实模型先跑 10 条，确认新策略是否稳定。
+- 实现 benchmark mixer，把 AgentIF、MATH、LongMemEval QA task 以 task 为单位混入同一 session，并支持可控冲突规则。
 
 ### Stage 2: P0 小规模正式实验
 

@@ -74,10 +74,10 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--split", default="s_cleaned")
     parser.add_argument("--limit", type=int, default=5)
-    parser.add_argument("--mode", choices=["oracle", "lexical", "full"], default="oracle")
+    parser.add_argument("--mode", choices=["oracle", "lexical", "lexical_turn", "full"], default="oracle")
     parser.add_argument("--max-sessions", type=int, default=3)
     parser.add_argument("--max-turns-per-session", type=int, default=4)
-    parser.add_argument("--turn-mode", choices=["first_n", "last_n", "ranked", "full"], default="first_n")
+    parser.add_argument("--turn-mode", choices=["first_n", "last_n", "ranked", "weighted", "full"], default="first_n")
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--max-tokens", type=int, default=160)
@@ -121,7 +121,9 @@ def main() -> None:
                 assert agent is not None
                 agent.instructions = (
                     "Answer the benchmark question using only the supplied conversation evidence. "
-                    "Return a concise answer phrase, not a long explanation."
+                    "Return a concise answer phrase, not a long explanation. "
+                    "For questions asking where an action happened, answer the store, place, or platform where "
+                    "the action occurred, not where the evidence or coupon was found."
                 )
                 agent.role = "LongMemEval QA evaluator."
                 result = agent.run(

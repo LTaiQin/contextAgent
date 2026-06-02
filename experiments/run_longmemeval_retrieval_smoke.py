@@ -34,9 +34,10 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--split", default="s_cleaned")
     parser.add_argument("--limit", type=int, default=5)
-    parser.add_argument("--mode", choices=["oracle", "lexical"], default="oracle")
+    parser.add_argument("--mode", choices=["oracle", "lexical", "lexical_turn"], default="oracle")
     parser.add_argument("--max-sessions", type=int, default=3)
     parser.add_argument("--max-turns-per-session", type=int, default=4)
+    parser.add_argument("--turn-mode", choices=["first_n", "last_n", "ranked", "weighted", "full"], default="first_n")
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR_DEFAULT)
     args = parser.parse_args()
 
@@ -59,6 +60,7 @@ def main() -> None:
             mode=args.mode,
             max_sessions=args.max_sessions,
             max_turns_per_session=args.max_turns_per_session,
+            turn_mode=args.turn_mode,
         )
         selected_indexes = adapter.select_session_indexes(sample, mode=args.mode, max_sessions=args.max_sessions)
         score = score_task(unit, str(unit.gold), None).to_dict()
@@ -94,6 +96,7 @@ def main() -> None:
     summary = {
         "split": args.split,
         "mode": args.mode,
+        "turn_mode": args.turn_mode,
         "total": len(records),
         "answer_session_hit": sum(1 for item in records if item["answer_session_hit"]),
         "full_input_tokens_est_total": sum(item["full_input_tokens_est"] for item in records),

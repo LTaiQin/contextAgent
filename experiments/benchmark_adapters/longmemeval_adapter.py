@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import math
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -101,6 +103,12 @@ class LongMemEvalAdapter:
                 return list(range(min(len(turns), max_turns)))
             ranked = ranked[:max_turns]
             return sorted(ranked)
+        if mode == "weighted":
+            ranked = self.rank_turns_weighted(sample, session_index)
+            if not ranked:
+                return list(range(min(len(turns), max_turns)))
+            ranked = ranked[:max_turns]
+            return sorted(ranked)
         return list(range(min(len(turns), max_turns)))
 
     def select_session_indexes(
@@ -118,6 +126,9 @@ class LongMemEvalAdapter:
             selected = [index for index, session_id in enumerate(session_ids) if session_id in answer_ids]
             if selected:
                 return selected[:max_sessions]
+        if mode == "lexical_turn":
+            ranked = self.rank_sessions_by_turn_evidence(sample)
+            return ranked[:max_sessions]
         ranked = self.rank_sessions(sample)
         return ranked[:max_sessions]
 
@@ -131,6 +142,32 @@ class LongMemEvalAdapter:
             text = " ".join(str(turn.get("content", "")) for turn in session)
             score = len(query_terms & self._terms(text))
             scored.append((score, index))
+        scored.sort(key=lambda item: (-item[0], item[1]))
+        return [index for score, index in scored if score > 0] or list(range(min(len(sessions), 1)))
+
+    def rank_sessions_by_turn_evidence(self, sample: dict[str, Any]) -> list[int]:
+        sessions = sample.get("haystack_sessions", [])
+        if not sessions:
+            return []
+        question_terms = self._query_terms(str(sample.get("question", "")))
+        if not question_terms:
+            return list(range(min(len(sessions), 1)))
+        idf = self._session_idf(sessions)
+        scored: list[tuple[float, int]] = []
+        for session_index, session in enumerate(sessions):
+            turn_scores = [
+                self._turn_relevance_score(turn, question_terms, idf) for turn in session
+            ]
+            positive_scores = [score for score in turn_scores if score > 0]
+            if not positive_scores:
+                scored.append((0.0, session_index))
+                continue
+            top_scores = sorted(positive_scores, reverse=True)[:3]
+            top_score = top_scores[0]
+            mean_top = sum(top_scores) / len(top_scores)
+            density = len(positive_scores) / max(1, len(session))
+            score = top_score + 0.35 * mean_top + 0.25 * density
+            scored.append((score, session_index))
         scored.sort(key=lambda item: (-item[0], item[1]))
         return [index for score, index in scored if score > 0] or list(range(min(len(sessions), 1)))
 
@@ -153,6 +190,22 @@ class LongMemEvalAdapter:
         if ranked:
             return ranked
         return list(range(min(len(turns), 1)))
+
+    def rank_turns_weighted(self, sample: dict[str, Any], session_index: int) -> list[int]:
+        sessions = sample.get("haystack_sessions", [])
+        if session_index >= len(sessions) or session_index < 0:
+            return []
+        question_terms = self._query_terms(str(sample.get("question", "")))
+        idf = self._session_idf(sessions)
+        scored = [
+            (self._turn_relevance_score(turn, question_terms, idf), index)
+            for index, turn in enumerate(sessions[session_index])
+        ]
+        scored.sort(key=lambda item: (-item[0], item[1]))
+        ranked = [index for score, index in scored if score > 0]
+        if ranked:
+            return ranked
+        return list(range(min(len(sessions[session_index]), 1)))
 
     def _split_path(self, split: str) -> Path:
         candidates = {
@@ -184,6 +237,91 @@ class LongMemEvalAdapter:
     @staticmethod
     def _terms(text: str) -> set[str]:
         return {token.lower() for token in re.findall(r"[A-Za-z0-9_]+|[\u4e00-\u9fff]", text)}
+
+    @classmethod
+    def _query_terms(cls, text: str) -> set[str]:
+        return cls._terms(text) - STOPWORDS
+
+    @classmethod
+    def _session_idf(cls, sessions: list[list[dict[str, Any]]]) -> dict[str, float]:
+        document_frequency: Counter[str] = Counter()
+        for session in sessions:
+            terms = cls._terms(" ".join(str(turn.get("content", "")) for turn in session))
+            document_frequency.update(terms)
+        session_count = max(1, len(sessions))
+        return {
+            term: math.log((session_count + 1) / (frequency + 1)) + 1.0
+            for term, frequency in document_frequency.items()
+        }
+
+    @classmethod
+    def _turn_relevance_score(
+        cls,
+        turn: dict[str, Any],
+        question_terms: set[str],
+        idf: dict[str, float],
+    ) -> float:
+        content = str(turn.get("content", ""))
+        turn_terms = cls._terms(content)
+        overlap = question_terms & turn_terms
+        if not overlap:
+            return 0.0
+        score = sum(idf.get(term, 1.0) for term in overlap)
+        score += 0.25 * len(overlap)
+        if turn.get("role") == "user":
+            score += 0.2
+        if any(marker in content.lower() for marker in ANSWER_MARKERS):
+            score += 0.4
+        return score
+
+
+STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "at",
+    "be",
+    "did",
+    "do",
+    "does",
+    "for",
+    "from",
+    "had",
+    "has",
+    "have",
+    "how",
+    "i",
+    "in",
+    "is",
+    "it",
+    "me",
+    "my",
+    "of",
+    "on",
+    "or",
+    "the",
+    "to",
+    "was",
+    "were",
+    "what",
+    "when",
+    "where",
+    "which",
+    "who",
+    "with",
+}
+
+ANSWER_MARKERS = (
+    "i ",
+    "i'",
+    "i've",
+    "my ",
+    "last ",
+    "yesterday",
+    "today",
+    "ago",
+)
 
 
 def score_longmemeval_string(content: str, gold: Any) -> dict[str, Any]:
