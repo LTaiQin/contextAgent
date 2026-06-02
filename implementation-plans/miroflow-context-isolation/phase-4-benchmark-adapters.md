@@ -405,6 +405,7 @@ experiments/
 | BFCL tool-router stress dry-run | 已完成第一版 | 可比较旧工具/旧上下文污染，不调用模型 |
 | LongMemEval adapter | 已完成第一版 | 可加载 cleaned/oracle 数据并构造 `TaskUnit` |
 | LongMemEval 临时 scorer | 已完成第一版 | `longmemeval_string_contains`，只用于冒烟测试 |
+| LongMemEval retrieval smoke | 已完成第一版 | 支持 oracle evidence 和 lexical retrieval，不调用模型 |
 
 本次验证命令：
 
@@ -428,6 +429,20 @@ conda run --no-capture-output -n miroflow-py312 \
 python -m py_compile experiments/benchmark_adapters/*.py \
   src/context_isolation/*.py \
   experiments/run_*.py
+
+conda run --no-capture-output -n miroflow-py312 \
+  python experiments/run_longmemeval_retrieval_smoke.py \
+  --split s_cleaned \
+  --limit 5 \
+  --mode oracle \
+  --out-dir experiments/runs/longmemeval_retrieval_oracle_smoke
+
+conda run --no-capture-output -n miroflow-py312 \
+  python experiments/run_longmemeval_retrieval_smoke.py \
+  --split s_cleaned \
+  --limit 5 \
+  --mode lexical \
+  --out-dir experiments/runs/longmemeval_retrieval_lexical_smoke
 ```
 
 本次验证结果：
@@ -438,17 +453,19 @@ BFCL scorer smoke: simple 3/3 passed, multi_turn_base 3/3 passed
 BFCL task_scoped_tool_filter dry-run: context_ok 3/3, forbidden_inclusion 0, input_tokens_est_total 588
 Phase 2 policy tests: 5/5 passed
 py_compile: passed
+LongMemEval oracle retrieval smoke: answer_session_hit 5/5, 713K -> 7K input tokens est
+LongMemEval lexical retrieval smoke: answer_session_hit 4/5, 713K -> 20K input tokens est
 ```
 
 重要限制：
 
 1. BFCL 当前 scorer 是本地 AST 近似评分器，不能作为论文中的 BFCL 官方分数。
 2. LongMemEval 当前 string-contains scorer 只能做 adapter smoke，正式实验需要官方/LLM judge 或 memory-benchmarks evaluator。
-3. LongMemEval cleaned 样本完整 haystack 输入接近 50 万字符，正式实验必须接 memory store、oracle evidence 或检索裁剪。
+3. LongMemEval cleaned 样本完整 haystack 输入接近 50 万字符，当前已补 oracle/lexical retrieval smoke，但正式实验还需要更强 retrieval 和真实模型 QA。
 4. 当前 BFCL tool-router stress 是 dry-run，只验证 context policy 和 tool exposure，不验证模型真实 tool call 能力。
 
 下一步进入 Phase 5 前，Phase 4 还应补：
 
 1. 将 BFCL 官方 evaluator 接进 `score_task()`，至少跑 10 到 20 条真实模型 tool-call 小样本。
-2. 为 LongMemEval 增加 memory-store/retrieval runner，避免完整 haystack 直塞。
+2. 为 LongMemEval 增加真实模型 QA runner，比较 full haystack、oracle evidence、lexical retrieval 和后续 hybrid retrieval。
 3. 选择是否优先接 MultiChallenge 或 tau2；如果预算紧，先不接 P1/P2。

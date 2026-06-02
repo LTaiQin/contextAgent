@@ -242,3 +242,56 @@ query_chars: 491K 到 509K
 重要结论：
 
 LongMemEval 单条样本如果直接拼完整 haystack，输入会接近 50 万字符。这正好说明它适合作为长历史检索/隔离压力测试，但正式实验不能直接把完整 haystack 全塞给模型。下一步需要接 memory store 和 evidence/oracle retrieval，只把相关 session 或片段注入上下文。
+
+## LongMemEval Retrieval Smoke
+
+新增：
+
+```text
+experiments/run_longmemeval_retrieval_smoke.py
+```
+
+目标：
+
+验证 LongMemEval 不应采用 full haystack 直塞模型，而应先做证据检索/裁剪。
+
+支持两种无模型检索模式：
+
+1. `oracle`: 使用 benchmark 自带的 `answer_session_ids` 选择证据 session。这个模式用于方法上界和 token 成本上界估算。
+2. `lexical`: 用当前 question 和每个 history session 的词重叠排序，选择 top-k。这个模式是不用 embedding、不调用模型的低成本 baseline。
+
+命令：
+
+```bash
+conda run --no-capture-output -n miroflow-py312 \
+  python experiments/run_longmemeval_retrieval_smoke.py \
+  --split s_cleaned \
+  --limit 5 \
+  --mode oracle \
+  --out-dir experiments/runs/longmemeval_retrieval_oracle_smoke
+
+conda run --no-capture-output -n miroflow-py312 \
+  python experiments/run_longmemeval_retrieval_smoke.py \
+  --split s_cleaned \
+  --limit 5 \
+  --mode lexical \
+  --out-dir experiments/runs/longmemeval_retrieval_lexical_smoke
+```
+
+结果：
+
+| mode | answer session hit | full input tokens est | compact input tokens est | avg compression ratio |
+| --- | --- | ---: | ---: | ---: |
+| oracle | 5/5 | 713,163 | 6,968 | 0.0098 |
+| lexical | 4/5 | 713,163 | 20,131 | 0.0282 |
+
+结论：
+
+1. oracle evidence 可以把输入从约 0.713M tokens 压到约 0.007M tokens。
+2. 简单 lexical retrieval 已经能大幅降成本，但 5 条中漏掉 1 条 answer session。
+3. 后续正式实验需要比较：
+   - full haystack
+   - oracle evidence
+   - lexical retrieval
+   - 后续 hybrid / embedding retrieval
+4. 这进一步支持本项目假设：长 session agent 不能每条消息无差别塞历史，也不能只靠最近 N 轮。

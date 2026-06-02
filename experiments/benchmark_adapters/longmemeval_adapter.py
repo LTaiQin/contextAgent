@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +48,59 @@ class LongMemEvalAdapter:
     def build_session(self, split: str = "s_cleaned", limit: int = 5) -> list[TaskUnit]:
         return [self.build_task_unit(sample) for sample in self.load_samples(split=split, limit=limit)]
 
+    def build_compact_context(
+        self,
+        sample: dict[str, Any],
+        mode: str = "oracle",
+        max_sessions: int = 3,
+        max_turns_per_session: int = 4,
+    ) -> str:
+        sessions = sample.get("haystack_sessions", [])
+        session_ids = sample.get("haystack_session_ids", [])
+        selected_indexes = self.select_session_indexes(sample, mode=mode, max_sessions=max_sessions)
+        parts = [f"LongMemEval mode={mode}", "Conversation evidence:"]
+        for index in selected_indexes:
+            session_id = session_ids[index] if index < len(session_ids) else f"session_{index}"
+            parts.append(f"\n[Session {index + 1}: {session_id}]")
+            for turn in sessions[index][:max_turns_per_session]:
+                role = turn.get("role", "user")
+                content = turn.get("content", "")
+                parts.append(f"{role}: {content}")
+        parts.append("\nQuestion:")
+        parts.append(str(sample.get("question", "")))
+        return "\n".join(parts)
+
+    def select_session_indexes(
+        self,
+        sample: dict[str, Any],
+        mode: str = "oracle",
+        max_sessions: int = 3,
+    ) -> list[int]:
+        sessions = sample.get("haystack_sessions", [])
+        if not sessions:
+            return []
+        if mode == "oracle":
+            answer_ids = [str(item) for item in sample.get("answer_session_ids", [])]
+            session_ids = [str(item) for item in sample.get("haystack_session_ids", [])]
+            selected = [index for index, session_id in enumerate(session_ids) if session_id in answer_ids]
+            if selected:
+                return selected[:max_sessions]
+        ranked = self.rank_sessions(sample)
+        return ranked[:max_sessions]
+
+    def rank_sessions(self, sample: dict[str, Any]) -> list[int]:
+        sessions = sample.get("haystack_sessions", [])
+        if not sessions:
+            return []
+        query_terms = self._terms(str(sample.get("question", "")))
+        scored: list[tuple[int, int]] = []
+        for index, session in enumerate(sessions):
+            text = " ".join(str(turn.get("content", "")) for turn in session)
+            score = len(query_terms & self._terms(text))
+            scored.append((score, index))
+        scored.sort(key=lambda item: (-item[0], item[1]))
+        return [index for score, index in scored if score > 0] or list(range(min(len(sessions), 1)))
+
     def _split_path(self, split: str) -> Path:
         candidates = {
             "s_cleaned": self.data_dir / "longmemeval_s_cleaned.json",
@@ -73,6 +127,10 @@ class LongMemEvalAdapter:
         parts.append("\nQuestion:")
         parts.append(str(sample.get("question", "")))
         return "\n".join(parts)
+
+    @staticmethod
+    def _terms(text: str) -> set[str]:
+        return {token.lower() for token in re.findall(r"[A-Za-z0-9_]+|[\u4e00-\u9fff]", text)}
 
 
 def score_longmemeval_string(content: str, gold: Any) -> dict[str, Any]:
