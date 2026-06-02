@@ -55,6 +55,7 @@
 | --- | ---: | ---: | ---: | ---: |
 | `longmemeval_retrieval_lexical_turn_weighted_smoke20` | 20 | 20/20 | - | 0.0849M |
 | `longmemeval_retrieval_lexical_turn_weighted_smoke100` | 100 | 94/100 | - | 0.4477M |
+| `longmemeval_retrieval_lexical_turn_weighted_s8_smoke100` | 100 | 97/100 | - | 1.0883M |
 | `longmemeval_qa_lexical_turn_weighted_3_cctq_gpt54` | 3 | 3/3 | 2/3 | 0.0112M |
 | `longmemeval_qa_lexical_turn_weighted_prompt_3_cctq_gpt54` | 3 | 3/3 | 3/3 | 0.0112M |
 
@@ -72,10 +73,21 @@
 4. multi-session 问题可能需要多证据覆盖，而不是只看单条最高分 turn。
 5. 答案类型约束目前在 prompt 中，后续应做成显式 question intent parser 和 answer-type aware evidence validation。
 
+## 固定扩大候选的观察
+
+把 `max_sessions` 从 3 提到 8 后，100 条 session hit 从 94/100 提升到 97/100，但 query input token 从 0.4477M 增加到 1.0883M。
+
+这个结果说明:
+
+1. 部分 miss 是召回预算不足导致的。
+2. 默认固定 8 个 session 成本偏高，不适合作为主策略。
+3. 更合理的方向是自适应扩大候选: 只有 multi-session、聚合问题、低置信排名或 top score 差距过小时，才从 3 扩到 6 或 8。
+
 ## 下一步
 
 1. 把 `lexical_turn + weighted` 纳入 Phase 5 主实验候选策略。
 2. 分析 100 条 dry-run 的 6 个 session miss，按 paraphrase/multi-session/low lexical overlap 分类。
 3. 真实模型先跑 10 条，确认 QA 改进是否稳定。
 4. 如果 10 条稳定，再实现 answer-type aware rerank，而不是继续堆 prompt。
-5. 下一版检索加入 semantic rerank 或 query expansion，用于覆盖抽象问题和同义表达。
+5. 下一版检索加入 adaptive session budget，用于在 multi-session/低置信场景扩大候选。
+6. 再下一版加入 semantic rerank 或 query expansion，用于覆盖抽象问题和同义表达。
