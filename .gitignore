@@ -21,3 +21,6 @@ research/agent-context-benchmarks/pdfs/
 .DS_Store
 .idea/
 .vscode/
+
+# Local SSH keys
+.ssh/

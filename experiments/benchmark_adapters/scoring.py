@@ -66,6 +66,26 @@ def score_task(unit: TaskUnit, content: str, error: str | None) -> BenchmarkScor
             },
             eval_details=details,
         )
+    if unit.source_benchmark == "BFCL":
+        from .bfcl_scoring import score_bfcl
+
+        score = score_bfcl(content, unit.gold)
+        return BenchmarkScore(
+            benchmark_score=score.pop("benchmark_score"),
+            benchmark_scored=score.pop("benchmark_scored"),
+            score_type=score.pop("score_type"),
+            details=score,
+        )
+    if unit.source_benchmark == "LongMemEval":
+        from .longmemeval_adapter import score_longmemeval_string
+
+        score = score_longmemeval_string(content, unit.gold)
+        return BenchmarkScore(
+            benchmark_score=score.pop("benchmark_score"),
+            benchmark_scored=score.pop("benchmark_scored"),
+            score_type=score.pop("score_type"),
+            details=score,
+        )
     return BenchmarkScore(
         benchmark_score=False,
         benchmark_scored=False,

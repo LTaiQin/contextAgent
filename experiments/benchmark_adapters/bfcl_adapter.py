@@ -31,11 +31,11 @@ class BFCLAdapter:
     def build_task_unit(self, sample: dict[str, Any]) -> TaskUnit:
         messages = self.flatten_question(sample.get("question", []))
         query = self.messages_to_query(messages)
-        functions = sample.get("function") or self.functions_from_path(sample.get("path", []))
-        tools = [self.to_openai_tool_schema(function) for function in functions]
         gold = sample.get("ground_truth") or sample.get("answer")
         if gold is None:
             gold = self.lookup_answer(sample.get("id"))
+        functions = sample.get("function") or self.functions_from_path(sample.get("path", []), gold)
+        tools = [self.to_openai_tool_schema(function) for function in functions]
         return TaskUnit(
             task_uid=f"bfcl:{sample.get('id')}",
             source_benchmark="BFCL",
@@ -112,17 +112,31 @@ class BFCLAdapter:
         self._function_cache = functions
         return functions
 
-    def functions_from_path(self, path_items: list[str]) -> list[dict[str, Any]]:
+    def functions_from_path(self, path_items: list[str], gold: Any = None) -> list[dict[str, Any]]:
         docs = self.load_function_docs()
         functions = []
         seen = set()
-        for item in path_items or []:
-            name = str(item).split(".")[-1]
+        names = [str(item).split(".")[-1] for item in path_items or []]
+        names.extend(self.names_from_gold(gold))
+        for name in names:
+            name = str(name).split(".")[-1]
             function = docs.get(name)
             if function and name not in seen:
                 functions.append(function)
                 seen.add(name)
         return functions
+
+    @staticmethod
+    def names_from_gold(gold: Any) -> list[str]:
+        if gold is None:
+            return []
+        from .bfcl_scoring import expected_calls
+
+        names = []
+        for call in expected_calls(gold):
+            if call.name not in names:
+                names.append(call.name)
+        return names
 
     @staticmethod
     def flatten_question(question: Any) -> list[dict[str, str]]:

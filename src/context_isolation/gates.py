@@ -16,6 +16,9 @@ TOOL_STATE_PATTERNS = [
 ]
 
 SELF_CONTAINED_PATTERNS = [
+    r"\bnew independent task\b",
+    r"\bindependent task\b",
+    r"(新的独立任务|独立任务)",
     r"\b(solve|find|calculate|prove|simplify|evaluate)\b[\s\S]{0,200}[=+\-*/^]",
     r"(求解|计算|证明|化简)[\s\S]{0,200}[=+\-*/^]",
     r"\bwhat is\b",
@@ -27,6 +30,15 @@ SELF_CONTAINED_PATTERNS = [
 class RuleBasedNeedGate:
     def decide(self, message: str) -> GateDecision:
         text = message.strip()
+        if self._looks_self_contained(text):
+            return GateDecision(
+                self_sufficient=True,
+                needs_history=False,
+                need_type="no_context",
+                confidence=0.88,
+                reason="Message appears self-contained and has no explicit history reference.",
+                risk_if_using_history="high",
+            )
         if self._has_history_reference(text):
             need_type = "tool_state" if self._has_tool_state_reference(text) else "task_local"
             return GateDecision(
@@ -37,15 +49,6 @@ class RuleBasedNeedGate:
                 reason="Message explicitly refers to previous context.",
                 missing_info=["referenced prior context"],
                 risk_if_using_history="low",
-            )
-        if self._looks_self_contained(text):
-            return GateDecision(
-                self_sufficient=True,
-                needs_history=False,
-                need_type="no_context",
-                confidence=0.88,
-                reason="Message appears self-contained and has no explicit history reference.",
-                risk_if_using_history="high",
             )
         if self._looks_ambiguous(text):
             return GateDecision(

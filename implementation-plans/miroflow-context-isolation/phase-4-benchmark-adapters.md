@@ -2,6 +2,8 @@
 
 更新时间: 2026-06-02。
 
+当前实施状态: Phase 4 已完成第一轮可运行 adapter 骨架和本地 smoke，尚未完成所有官方 evaluator 集成。
+
 ## 目标
 
 为 LightAgent 主线实现公开 benchmark adapter。adapter 必须复用官方数据和官方评分器，额外增加统一 session 构造、上下文策略注入、trace 日志和成本统计。
@@ -385,3 +387,68 @@ experiments/
 2. tau2 adapter。
 3. ToolSandbox adapter。
 4. STATE-Bench smoke。
+
+## 当前进度记录
+
+日期: 2026-06-02。
+
+已完成并通过本地验证：
+
+| 项目 | 状态 | 说明 |
+| --- | --- | --- |
+| 统一 `TaskUnit` / `BenchmarkResult` | 已完成 | MATH、AgentIF、BFCL、LongMemEval adapter 共用 |
+| MATH same-session runner | 已完成 | 可比较 `full_session`、`recent_n`、`task_scoped` |
+| AgentIF same-session runner | 已完成 | 支持 code constraint scorer，小样本已跑通 |
+| Mixed single-session runner | 已完成 | 可把公开 benchmark task 混到同一 session，统计旧上下文污染 |
+| BFCL adapter | 已完成第一版 | 支持 `simple` 和 `multi_turn_base` 数据加载、gold 合并、tool schema 转换 |
+| BFCL local scorer | 已完成第一版 | `bfcl_local_ast_approx`，用于 smoke 和压力测试，不等价于官方 evaluator |
+| BFCL tool-router stress dry-run | 已完成第一版 | 可比较旧工具/旧上下文污染，不调用模型 |
+| LongMemEval adapter | 已完成第一版 | 可加载 cleaned/oracle 数据并构造 `TaskUnit` |
+| LongMemEval 临时 scorer | 已完成第一版 | `longmemeval_string_contains`，只用于冒烟测试 |
+
+本次验证命令：
+
+```bash
+conda run --no-capture-output -n miroflow-py312 \
+  python experiments/run_longmemeval_adapter_smoke.py
+
+conda run --no-capture-output -n miroflow-py312 \
+  python experiments/run_bfcl_scorer_smoke.py
+
+conda run --no-capture-output -n miroflow-py312 \
+  python experiments/run_bfcl_tool_stress_policy.py \
+  --category multi_turn_base \
+  --policy task_scoped_tool_filter \
+  --limit 3 \
+  --out-dir experiments/runs/bfcl_tool_stress_task_scoped_dryrun_v4
+
+conda run --no-capture-output -n miroflow-py312 \
+  python experiments/run_phase2_policy_tests.py
+
+python -m py_compile experiments/benchmark_adapters/*.py \
+  src/context_isolation/*.py \
+  experiments/run_*.py
+```
+
+本次验证结果：
+
+```text
+LongMemEval adapter smoke: 3/3 passed
+BFCL scorer smoke: simple 3/3 passed, multi_turn_base 3/3 passed
+BFCL task_scoped_tool_filter dry-run: context_ok 3/3, forbidden_inclusion 0, input_tokens_est_total 588
+Phase 2 policy tests: 5/5 passed
+py_compile: passed
+```
+
+重要限制：
+
+1. BFCL 当前 scorer 是本地 AST 近似评分器，不能作为论文中的 BFCL 官方分数。
+2. LongMemEval 当前 string-contains scorer 只能做 adapter smoke，正式实验需要官方/LLM judge 或 memory-benchmarks evaluator。
+3. LongMemEval cleaned 样本完整 haystack 输入接近 50 万字符，正式实验必须接 memory store、oracle evidence 或检索裁剪。
+4. 当前 BFCL tool-router stress 是 dry-run，只验证 context policy 和 tool exposure，不验证模型真实 tool call 能力。
+
+下一步进入 Phase 5 前，Phase 4 还应补：
+
+1. 将 BFCL 官方 evaluator 接进 `score_task()`，至少跑 10 到 20 条真实模型 tool-call 小样本。
+2. 为 LongMemEval 增加 memory-store/retrieval runner，避免完整 haystack 直塞。
+3. 选择是否优先接 MultiChallenge 或 tau2；如果预算紧，先不接 P1/P2。
