@@ -353,3 +353,25 @@ dry-run 结果：
 2. oracle evidence 相比 full haystack 仍然能把输入压到约 1%。
 3. lexical retrieval 成本也很低，但命中率明显弱于 oracle。
 4. 下一步最合理的是用真实模型跑 3 到 5 条 oracle / lexical 小样本，确认实际 QA 分数和 token 成本。
+
+### 真实模型小样本
+
+记录：
+
+```text
+experiment-notes/longmemeval-qa-small-cctq-gpt54-2026-06-02.md
+```
+
+结果摘要：
+
+| mode | max turns | answer session hit | pass | query input tokens est |
+| --- | ---: | ---: | ---: | ---: |
+| oracle | 4 | 3/3 | 1/3 | 4,579 |
+| oracle | 20 | 3/3 | 3/3 | 12,155 |
+| lexical | 20 | 2/3 | 1/3 | 34,081 |
+
+关键结论：
+
+1. 只选对 session 还不够，固定取前 4 turn 会漏掉答案证据。
+2. oracle 选中 answer session 并保留更多 turn 后，小样本 3/3 正确，token 仍远低于 full haystack。
+3. lexical retrieval 会漏检或引入干扰，后续需要 session 内 evidence ranking / validator。
