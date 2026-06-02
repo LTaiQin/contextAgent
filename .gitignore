@@ -1,0 +1,23 @@
+# Runtime and generated outputs
+logs/
+experiments/runs/
+*.log
+__pycache__/
+*.py[cod]
+
+# Downloaded data and third-party repositories
+data/
+third_party/
+
+# Local env and secrets
+.env
+*.key
+*.pem
+
+# Paper/PDF cache and large research artifacts
+research/agent-context-benchmarks/pdfs/
+
+# System/editor files
+.DS_Store
+.idea/
+.vscode/
