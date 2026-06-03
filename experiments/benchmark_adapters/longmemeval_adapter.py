@@ -198,7 +198,7 @@ class LongMemEvalAdapter:
         if not positive_scores:
             return base_sessions
         if question_type == "multi-session" or any(term in question for term in AGGREGATION_MARKERS):
-            return max(base_sessions, 8)
+            return max(base_sessions, 6)
         if len(positive_scores) <= base_sessions:
             return len(positive_scores)
         top_score = positive_scores[0]
@@ -208,7 +208,7 @@ class LongMemEvalAdapter:
             return base_sessions
         next_ratio = next_score / top_score
         boundary_gap = (kth_score - next_score) / top_score
-        if next_ratio >= 0.72 or boundary_gap <= 0.06:
+        if next_ratio >= 0.78 or boundary_gap <= 0.05:
             return max(base_sessions, 6)
         return base_sessions
 

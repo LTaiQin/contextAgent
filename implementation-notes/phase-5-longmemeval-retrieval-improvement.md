@@ -57,6 +57,7 @@
 | `longmemeval_retrieval_lexical_turn_weighted_smoke100` | 100 | 94/100 | - | 0.4477M |
 | `longmemeval_retrieval_lexical_turn_weighted_s8_smoke100` | 100 | 97/100 | - | 1.0883M |
 | `longmemeval_retrieval_lexical_adaptive_weighted_smoke100` | 100 | 97/100 | - | 0.9620M |
+| `longmemeval_retrieval_lexical_adaptive_weighted_tuned_smoke100` | 100 | 96/100 | - | 0.7981M |
 | `longmemeval_qa_lexical_turn_weighted_3_cctq_gpt54` | 3 | 3/3 | 2/3 | 0.0112M |
 | `longmemeval_qa_lexical_turn_weighted_prompt_3_cctq_gpt54` | 3 | 3/3 | 3/3 | 0.0112M |
 
@@ -80,12 +81,20 @@
 
 新增 `lexical_adaptive` 后，100 条 session hit 同样为 97/100，query input token 为 0.9620M，略低于固定 8，但仍明显高于固定 3。
 
+进一步做 budget sweep 并收紧阈值后，得到 tuned 版本:
+
+- `multi-session` 或聚合问题扩到 6 个 session。
+- `single-session-user` 仅在排名边界足够模糊时扩到 6 个 session。
+- 100 条结果为 96/100，query input token 为 0.7981M。
+
+这比旧 adaptive 少约 0.1639M token，同时只损失 1 个 session hit。
+
 这个结果说明:
 
 1. 部分 miss 是召回预算不足导致的。
 2. 默认固定 8 个 session 成本偏高，不适合作为主策略。
 3. 更合理的方向是自适应扩大候选: 只有 multi-session、聚合问题、低置信排名或 top score 差距过小时，才从 3 扩到 6 或 8。
-4. 当前 `lexical_adaptive` 阈值偏宽，70 条 single-session-user 中有 53 条扩到了 6 或 8，后续需要收紧。
+4. 当前 tuned adaptive 已明显收紧，但仍不是最终版本。剩余 4 个 miss 中，至少 1 个是 negative/unanswerable，至少 2 个是 multi-session aggregation。
 
 ## 下一步
 
@@ -93,5 +102,5 @@
 2. 分析 100 条 dry-run 的 6 个 session miss，按 paraphrase/multi-session/low lexical overlap 分类。
 3. 真实模型先跑 10 条，确认 QA 改进是否稳定。
 4. 如果 10 条稳定，再实现 answer-type aware rerank，而不是继续堆 prompt。
-5. 下一版检索加入 adaptive session budget，用于在 multi-session/低置信场景扩大候选。
-6. 再下一版加入 semantic rerank 或 query expansion，用于覆盖抽象问题和同义表达。
+5. 下一版真实模型实验先比较 `lexical_turn` 和 tuned `lexical_adaptive` 的 QA 分数，而不是只看 session hit。
+6. 如果 QA 没同步提升，再加入 semantic rerank 或 query expansion，用于覆盖抽象问题和同义表达。
